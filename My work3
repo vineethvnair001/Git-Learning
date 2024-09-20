@@ -114,8 +114,8 @@ train1 = train.drop(['id', 'brand', 'model', 'engine', 'transmission', 'ext_col'
 
 #Creating a copy for label encoding
 train2 = train1.copy()
-train2.head(1)
-
+train2.columns
+train2
 
 train2.columns
 
@@ -127,19 +127,27 @@ for i in list1:
     
     
 #Label encoding for  categories
-from sklearn.preprocessing import LabelEncoder
-label_encoder = LabelEncoder()
-train2['fuel_type'] = label_encoder.fit_transform(train2['fuel_type'])
-train2['accident'] = label_encoder.fit_transform(train2['accident'])
-train2['clean_title'] = label_encoder.fit_transform(train2['clean_title'])
-train2['brand_category'] = label_encoder.fit_transform(train2['brand_category'])
-train2['transmission_category'] = label_encoder.fit_transform(train2['transmission_category'])
-train2.head(1)
+# from sklearn.preprocessing import LabelEncoder
+# label_encoder = LabelEncoder()
+# train2['fuel_type'] = label_encoder.fit_transform(train2['fuel_type'])
+# train2['accident'] = label_encoder.fit_transform(train2['accident'])
+# train2['clean_title'] = label_encoder.fit_transform(train2['clean_title'])
+# train2['brand_category'] = label_encoder.fit_transform(train2['brand_category'])
+# train2['transmission_category'] = label_encoder.fit_transform(train2['transmission_category'])
+
+
+#Dummy encoding
+dummy_encoded = pd.get_dummies(train2,columns=['fuel_type','accident','clean_title','brand_category','transmission_category'],drop_first=True)
+dummy_encoded =dummy_encoded.astype(int)
+dummy_encoded
+
+train2 = dummy_encoded
+train2.columns
 
 
 #Checking correlation between different features & label
-plt.figure(figsize=(15,10))
-sns.heatmap(train2.corr(),annot=True)
+plt.figure(figsize=(50,50))
+sns.heatmap(train2.corr(),annot=True,fmt=".1f", annot_kws={"size": 8}, linewidths=0.9, linecolor='black')
 
 #Milage is not showing much correlation with price. Hence dropping
 train3 = train2.drop(['milage'], axis=1)
