@@ -1,0 +1,241 @@
+#Importing required packages
+import os
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+
+#checking the current directory for input file.
+print(os.getcwd())
+
+#Reading input file
+train  = pd.read_csv("train.csv")
+train.head(3)
+train.info()
+
+#sns.pairplot(train,hue='price')
+#To set the output values in floating number format
+pd.set_option('display.float_format', lambda x: '%.2f' % x)
+
+#Checking null values
+train.isnull().sum()
+
+#Cleaning 'Clean Title' column
+train.clean_title.isnull().sum()
+train.clean_title.info()
+train.clean_title.value_counts()
+train.clean_title.unique()
+train['clean_title'] = train['clean_title'].fillna("NA")
+
+
+#Cleaning 'accident' column
+train.accident.value_counts()
+train.accident.isnull().sum()
+train['accident'] = train['accident'].fillna("NA")
+
+#Cleaning 'fuel type'
+train.fuel_type.value_counts()
+train['fuel_type'].isnull().sum()
+
+#grouping null values and other categories like '-' & 'not supported
+#under single group
+train['fuel_type'] = train['fuel_type'].fillna("Unknown")
+
+def grouping_function(x):
+    if x == '–' or x == 'not supported' or x == 'Unknown':
+        return 'Other'
+    else:
+        return x
+    
+train['fuel_type'] = train['fuel_type'].apply(grouping_function)
+    
+
+#No more missing values    
+train.isnull().sum()
+
+
+#Checking and grouping brands based on price
+train['brand'].value_counts().head(20)
+train['brand'].value_counts().tail(20)
+
+avg_price_by_brand = train.groupby('brand')['price'].mean().sort_values()
+
+luxury_threshold = avg_price_by_brand.quantile(0.70)
+economy_threshold = avg_price_by_brand.quantile(0.30)
+
+brand_categories = {}
+for brand, price in avg_price_by_brand.items():
+    if price >= luxury_threshold:
+        brand_categories[brand] = 'luxury'
+    elif price >= economy_threshold:
+        brand_categories[brand] = 'economy'
+    else:
+        brand_categories[brand] = 'poor'
+
+
+train['brand_category'] = train['brand'].map(brand_categories)
+
+train.head(1)
+
+#Extracting engine capacity from 'engine' column
+train['engine'].value_counts()
+train['engine_new'] = train['engine'].str.extract(r'(\d+\.\d+)L')[0].astype(float)
+train['engine_new'].value_counts()
+train['engine_new'].isnull().sum()
+train['engine_new'].describe()
+train['engine_new'] = train['engine_new'].fillna(train['engine_new'].median())
+
+
+#Grouping 'transmission' column
+train.transmission.value_counts()
+
+def assign_group(description):
+    if 'Automatic' in description:
+        return 'Automatic'
+    elif 'Manual' in description:
+        return 'Manual'
+    elif 'M/T' in description:
+        return 'Manual'
+    elif 'A/T' in description:
+        return 'Automatic'
+    elif 'Dual Shift' in description:
+        return 'Semi-Automatic'
+    elif 'CVT' in description:
+        return 'Automatic'
+    else:
+        return 'Not Clear'
+    
+train['transmission_category'] = train['transmission'].apply(assign_group)
+train.transmission_category.value_counts()
+
+
+#Removing unwanted columns
+train.head(2)
+train1 = train.drop(['id', 'brand', 'model', 'engine', 'transmission', 'ext_col', 'int_col'],axis = 1)
+
+#Creating a copy for label encoding
+train2 = train1.copy()
+train2.columns
+train2
+
+train2.columns
+
+list1 = ['model_year', 'milage', 'fuel_type', 'accident', 'clean_title', 'price',
+       'brand_category', 'engine_new', 'transmission_category']
+
+for i in list1:
+    print(train2[i].value_counts())
+    
+    
+#Label encoding for  categories
+# from sklearn.preprocessing import LabelEncoder
+# label_encoder = LabelEncoder()
+# train2['fuel_type'] = label_encoder.fit_transform(train2['fuel_type'])
+# train2['accident'] = label_encoder.fit_transform(train2['accident'])
+# train2['clean_title'] = label_encoder.fit_transform(train2['clean_title'])
+# train2['brand_category'] = label_encoder.fit_transform(train2['brand_category'])
+# train2['transmission_category'] = label_encoder.fit_transform(train2['transmission_category'])
+
+
+#Dummy encoding
+dummy_encoded = pd.get_dummies(train2,columns=['fuel_type','accident','clean_title','brand_category','transmission_category'],drop_first=True)
+dummy_encoded =dummy_encoded.astype(int)
+dummy_encoded
+
+train2 = dummy_encoded
+train2.columns
+
+
+#Checking correlation between different features & label
+plt.figure(figsize=(50,50))
+sns.heatmap(train2.corr(),annot=True,fmt=".1f", annot_kws={"size": 8}, linewidths=0.9, linecolor='black')
+
+#Milage is not showing much correlation with price. Hence dropping
+train3 = train2.drop(['milage'], axis=1)
+train3.head(3)
+
+
+#Spliting the dataset to features(X) and label(y)
+X = train3.drop(['price'],axis = 1)
+y = train3['price']
+
+#Transforming the data to scale down values
+from sklearn.preprocessing import StandardScaler
+scalar = StandardScaler()
+xcolumns = X.columns
+X = scalar.fit_transform(X)
+X = pd.DataFrame(X,columns = xcolumns)
+X.head(1)
+X.info()
+
+
+
+
+
+#Performing training and testing split
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=100)
+
+X_train.head(1)
+X_train.shape
+X_test.head(1)
+
+
+
+#Learning PCA - Principal Component Analysis
+from sklearn.decomposition import PCA
+pca = PCA(0.95)
+X_train_pca = pca.fit_transform(X_train)
+X_train_pca.shape
+
+
+#sns.pairplot(X)
+
+
+# #Performing model training using Linear Regression
+# from sklearn.linear_model import LinearRegression
+# lr = LinearRegression()
+# lr.fit(X_train,y_train)
+# lr.score(X_train,y_train)
+# lr.score(X_test,y_test)
+
+# from sklearn import metrics
+# y_pred = lr.predict(X_test)
+# print("R2 Score is : ", metrics.r2_score(y_test,y_pred))
+
+# #Showing actual Vs predicted values
+# len(y_test)
+
+# c = [i for i in range(1,37708,1)]   #Creating an Index
+# fig = plt.figure()
+# plt.plot(c,y_test, color = 'green') # Plotting y test
+# plt.plot(c,y_pred, color = 'blue') # Plotting predicted values
+# plt.title('Actual (Green) Vs Predicted (Blue)') # Set title
+# plt.show()
+
+
+#Performing Decision Tree Regression
+# from sklearn.tree import DecisionTreeRegressor
+# reg1 = DecisionTreeRegressor(max_depth=2)
+# reg1.fit(X_train,y_train)
+# reg1.score(X_train,y_train)
+
+#Testing Support Vector Regression
+# from sklearn.svm import SVR
+# reg2 = SVR(C=1.0,epsilon=0.2)
+# reg2.fit(X_train,y_train)
+
+#Finally Random Forest Learning
+from sklearn.ensemble import RandomForestRegressor
+rf_class = RandomForestRegressor(n_estimators=300,random_state=10)
+rf_class.fit(X_train_pca,y_train)
+rf_class.score(X_train_pca,y_train)
+
+y_pred = rf_class.predict(X_test)
+
+from sklearn.metrics import mean_squared_error, r2_score
+mse = mean_squared_error(y_test,y_pred)
+r2score = r2_score(y_test,y_pred)
+mse
+# r2score
+
